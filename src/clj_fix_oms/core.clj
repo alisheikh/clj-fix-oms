@@ -41,10 +41,10 @@
           (alter collection update-in [symbol side]
             dissoc price))))))
 
-(defn new-order [order]
+(defn order-accepted [order]
   (dosync (add-order order open-orders)))
 
-(defn cancel-order [order]
+(defn order-canceled [order]
   (dosync
     (remove-order order open-orders)
     (add-order order closed-orders)))
@@ -67,3 +67,15 @@
     (let [order-ids (get-order-ids sym side best-price)]
       (get-in @open-orders [sym side best-price (first order-ids)]))))
 
+(defn update-oms [order]
+  (if-let [status (:order-status order)]
+    (case status
+      :pending-new nil
+      :new (order-accepted order)
+      :partial-fill nil
+      :filled nil
+      :canceled (order-canceled order)
+      :replace nil
+      :pending-cancel nil
+      :rejected nil
+      :pending-replace nil)))
