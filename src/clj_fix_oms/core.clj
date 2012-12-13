@@ -24,18 +24,18 @@
   (let [idx (.indexOf orders order-id)]
     (if (not= -1 idx) idx nil)))
 
-; A removed order needs to be added to closed-orders.
 (defn remove-order [order collection]
-  (let [{:keys [symbol side price client-order-id]} order]
+  (let [{:keys [symbol side price]} order
+        order-id (:client-order-id order)]
     (if-let [active-order
-            (get-in @collection [symbol side price client-order-id])]
+            (get-in @collection [symbol side price order-id])]
       (let [orders (get-in @collection [symbol side price :order-ids])]
         ; Remove the order id from the price's order list.
         (alter collection update-in [symbol side price :order-ids]
-          disj client-order-id)
+          disj order-id)
         ; Remove the order from collection.
         (alter collection update-in [symbol side price]
-          dissoc client-order-id)
+          dissoc order-id)
         ; Remove a price completely if there are no orders for it.
         (if (empty? (get-in @collection [symbol side price :order-ids]))
           (alter collection update-in [symbol side]
@@ -55,12 +55,18 @@
                              [_ oooos] ooos] oooos))]
     (first (for [o orders :when (= order-id (:client-order-id o))] o))))
 
+(defn order-replaced [order]
+  (dosync
+    (remove-order (find-order (:orig-client-order-id order)) open-orders)
+    (add-order order open-orders)))
+
 (defn get-order-ids [sym side price]
   (get-in @open-orders [sym side price :order-ids]))
 
 (defn get-best-priced-order [sym side]
-  ; If there is more than one order at the best price, returns the order with
-  ; best time priority.
+  ; If there is more than one order at the best price, returns the order first
+  ; in the queue. Because of various cancel-replace policies, this does not
+  ; guarantee the order has best time priority.
   (if-let [best-price (if (= :buy side) 
                         (ffirst (reverse (get-in @open-orders [sym side])))
                         (ffirst (get-in @open-orders [sym side])))]
@@ -75,7 +81,7 @@
       :partial-fill nil
       :filled nil
       :canceled (order-canceled order)
-      :replace nil
+      :replace (order-replaced order)
       :pending-cancel nil
       :rejected nil
       :pending-replace nil)))
