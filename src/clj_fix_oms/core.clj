@@ -41,24 +41,15 @@
           (alter collection update-in [symbol side]
             dissoc price))))))
 
-(defn order-accepted [order]
-  (dosync (add-order order open-orders)))
-
-(defn order-canceled [order]
-  (dosync
-    (remove-order order open-orders)
-    (add-order order closed-orders)))
-
 ; This needs to be cleaned-up and search closed-orders as well.
 (defn find-order [order-id]
   (let [orders (filter map? (for [[_ os] @open-orders [_ oos] os [_ ooos] oos
                              [_ oooos] ooos] oooos))]
     (first (for [o orders :when (= order-id (:client-order-id o))] o))))
 
-(defn order-replaced [order]
-  (dosync
-    (remove-order (find-order (:orig-client-order-id order)) open-orders)
-    (add-order order open-orders)))
+(defn modify-order [order]
+  (let [{:keys [symbol side price client-order-id]} order]
+    (alter open-orders assoc-in [symbol side price client-order-id] order)))
 
 (defn get-order-ids [sym side price]
   (get-in @open-orders [sym side price :order-ids]))
@@ -73,15 +64,43 @@
     (let [order-ids (get-order-ids sym side best-price)]
       (get-in @open-orders [sym side best-price (first order-ids)]))))
 
+(defn order-accepted [order]
+  (dosync (add-order order open-orders)))
+
+(defn order-canceled [order]
+  (dosync
+    (remove-order order open-orders)
+    (add-order order closed-orders)))
+
+(defn order-partially-filled [order]
+  (dosync
+    (modify-order order)))
+
+(defn order-filled [order]
+  (dosync
+    (order-canceled order)))
+
+(defn order-replaced [order]
+  (dosync
+    (remove-order (find-order (:client-order-id order)) open-orders)
+    (add-order order open-orders)))
+
+(defn order-pending-replace [order]
+  (let [{:keys [symbol side price orig-client-order-id]} order]
+  (dosync
+    (remove-order (get-in @open-orders [symbol side price orig-client-order-id])
+                     open-orders)
+    (add-order order open-orders))))
+
 (defn update-oms [order]
   (if-let [status (:order-status order)]
     (case status
-      :pending-new nil
+      :pending-new (println "CLJ-FIX-OMS: Pending New")
       :new (order-accepted order)
-      :partial-fill nil
-      :filled nil
+      :partial-fill (order-partially-filled order)
+      :filled (order-filled order)
       :canceled (order-canceled order)
       :replace (order-replaced order)
-      :pending-cancel nil
-      :rejected nil
-      :pending-replace nil)))
+      :pending-cancel (println "CLJ-FIX-OMS: Pending Cancel")
+      :rejected (println "CLJ-FIX-OMS: Order Rejected")
+      :pending-replace (order-pending-replace order))))
