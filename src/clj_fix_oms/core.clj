@@ -5,6 +5,7 @@
 (def closed-orders (ref {}))
 (def positions (ref {}))
 
+
 (defn add-order [order collection]
   (let [{:keys [symbol side price client-order-id]} order]
     (if-let [orders-at-price (get-in @collection [symbol side price])]
@@ -94,13 +95,18 @@
 
 (defn update-oms [order]
   (if-let [status (:order-status order)]
-    (case status
-      :pending-new (println "CLJ-FIX-OMS: Pending New")
-      :new (order-accepted order)
-      :partial-fill (order-partially-filled order)
-      :filled (order-filled order)
-      :canceled (order-canceled order)
-      :replace (order-replaced order)
-      :pending-cancel (println "CLJ-FIX-OMS: Pending Cancel")
-      :rejected (println "CLJ-FIX-OMS: Order Rejected")
-      :pending-replace (order-pending-replace order))))
+    (do
+      ; Temporary output function for certification
+      (println (map #(% order)
+        [:order-status :symbol :order-qty :price :cumulative-qty :leaves-qty
+         :last-price :avg-price]))
+      (case status
+        :pending-new (println "CLJ-FIX-OMS: Pending New")
+        :new (order-accepted order)
+        :partial-fill (order-partially-filled order)
+        :filled (order-filled order)
+        :canceled (order-canceled order)
+        :replace (order-replaced order)
+        :pending-cancel (println "CLJ-FIX-OMS: Pending Cancel")
+        :rejected (println "CLJ-FIX-OMS: Order Rejected")
+        :pending-replace (order-pending-replace order)))))
