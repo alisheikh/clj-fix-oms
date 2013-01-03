@@ -5,7 +5,6 @@
 (def closed-orders (ref {}))
 (def positions (ref {}))
 
-
 (defn add-order [order collection]
   (let [{:keys [symbol side price client-order-id]} order]
     (if-let [orders-at-price (get-in @collection [symbol side price])]
