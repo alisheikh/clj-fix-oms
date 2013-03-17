@@ -20,10 +20,6 @@
           (sorted-map price {:order-ids (ordered-set client-order-id)
                              client-order-id order}))))))
 
-(defn locate-order-pos [order-id orders]
-  (let [idx (.indexOf orders order-id)]
-    (if (not= -1 idx) idx nil)))
-
 (defn remove-order [order collection]
   (let [{:keys [symbol side price]} order
         order-id (:client-order-id order)]
@@ -96,16 +92,16 @@
   (if-let [status (:order-status order)]
     (do
       ; Temporary output function for certification
-      (println (map #(% order)
-        [:order-status :symbol :order-qty :price :cumulative-qty :leaves-qty
-         :last-price :avg-price]))
+      ; (println (map #(% order)
+      ;   [:order-status :symbol :order-qty :price :cumulative-qty :leaves-qty
+      ;    :last-price :avg-price]))
       (case status
-        :pending-new (println "CLJ-FIX-OMS: Pending New")
+        :pending-new nil ; (println "CLJ-FIX-OMS: Pending New")
         :new (order-accepted order)
         :partial-fill (order-partially-filled order)
         :filled (order-filled order)
         :canceled (order-canceled order)
         :replace (order-replaced order)
-        :pending-cancel (println "CLJ-FIX-OMS: Pending Cancel")
-        :rejected (println "CLJ-FIX-OMS: Order Rejected")
+        :pending-cancel nil;(println "CLJ-FIX-OMS: Pending Cancel")
+        :rejected nil;(println "CLJ-FIX-OMS: Order Rejected")
         :pending-replace (order-pending-replace order)))))
